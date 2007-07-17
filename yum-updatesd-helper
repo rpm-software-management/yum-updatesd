@@ -86,7 +86,11 @@ class UpdateEmitter(object):
     def setupFailed(self, error, translation_domain):
        """Emitted when plugin initialization failed."""
        pass
- 
+
+    def updateInfo(self, update):
+        """Emitted with information on available updates (async)"""
+        pass
+   
 
 class SyslogUpdateEmitter(UpdateEmitter):
     def __init__(self, syslog_facility, ident = "yum-updatesd",
@@ -205,6 +209,9 @@ class DbusUpdateEmitter(UpdateEmitter):
     def setupFailed(self, error, translation_domain):
         self.dbusintf.SetupFailedSignal(error, translation_domain)
 
+    def updateInfo(self, upd):
+        self.dbusintf.UpdateInfoSignal(upd)
+
 
 class YumDbusInterface(dbus.service.Object):
     def __init__(self, bus_name, object_path='/UpdatesAvail'):
@@ -232,6 +239,10 @@ class YumDbusInterface(dbus.service.Object):
 
     @dbus.service.signal('edu.duke.linux.yum')
     def SetupFailedSignal(self, message, translation_domain=""):
+        pass
+
+    @dbus.service.signal('edu.duke.linux.yum')
+    def UpdateInfoSignal(self, message):
         pass
 
 
@@ -420,12 +431,16 @@ class UpdatesDaemon(yum.YumBase):
             n = getDbusPackageDict(self.getPackageObject(new))
             o = getDbusPackageDict(self.rpmdb.searchPkgTuple(old)[0])
             self.updateInfo.append((n, o))
+            self.emitUpdateInfo( (n, o) )
+            
 
         if self.conf.obsoletes:
             for (obs, inst) in self.up.getObsoletesTuples():
                 n = getDbusPackageDict(self.getPackageObject(obs))
                 o = getDbusPackageDict(self.rpmdb.searchPkgTuple(inst)[0])
                 self.updateInfo.append((n, o))
+
+                self.emitUpdateInfo( (n, o) )                
 
         self.updateInfoTime = time.time()
 
@@ -559,68 +574,18 @@ class UpdatesDaemon(yum.YumBase):
         """method to emit a notice when checking for updates failed"""
         map(lambda x: x.setupFailed(error, translation_domain), self.emitters)
 
+    def emitUpdateInfo(self, update):
+        """method to emit information about an available update"""
+        map(lambda x: x.updateInfo(update), self.emitters)
 
-class YumDbusListener(dbus.service.Object):
-    def __init__(self, updd, bus_name, object_path='/Updatesd',
-                 allowshutdown = False):
-        dbus.service.Object.__init__(self, bus_name, object_path)
-        self.updd = updd
-        self.allowshutdown = allowshutdown
-
-    def doCheck(self):
-        self.updd.updatesCheck()
-        return False
-
-    @dbus.service.method("edu.duke.linux.yum", in_signature="")
-    def CheckNow(self):
-        # make updating checking asynchronous since we discover whether
-        # or not there are updates via a callback signal anyway
-        gobject.idle_add(self.doCheck)
-        return "check queued"
-
-    @dbus.service.method("edu.duke.linux.yum", in_signature="")
-    def ShutDown(self):
-        if not self.allowshutdown:
-            return False
-        
-        # we have to do this in a callback so that it doesn't get
-        # sent back to the caller
-        gobject.idle_add(shutDown)
-        return True
-
-    @dbus.service.method("edu.duke.linux.yum", in_signature="", out_signature="a(a{ss}a{ss})")
-    def GetUpdateInfo(self):
-        # FIXME: should this be async?
-        upds = self.updd.getUpdateInfo()
-        return upds
-        
-
-def shutDown():
-    sys.exit(0)
-
-def restart():
-    os.chdir(initial_directory)
-    os.execve(sys.argv[0], sys.argv, os.environ)  
 
 def main(options = None):
-    # we'll be threading for downloads/updates
-    gobject.threads_init()
-    dbus.glib.threads_init()
-
     if options is None:
         parser = OptionParser()
-        parser.add_option("-f", "--no-fork", action="store_true", default=False, dest="nofork")
-        parser.add_option("-r", "--remote-shutdown", action="store_true", default=False, dest="remoteshutdown")    
+        parser.add_option("-c", "--check", action="store_true", default=False, dest="check")
+        parser.add_option("-d", "--download", action="store_true", default=False, dest="download")
+        parser.add_option("-a", "--apply", action="store_true", default=False, dest="apply")
         (options, args) = parser.parse_args()
-
-        if not options.nofork:
-            if os.fork():
-                sys.exit()
-            fd = os.open("/dev/null", os.O_RDWR)
-            os.dup2(fd, 0)
-            os.dup2(fd, 1)
-            os.dup2(fd, 2)
-            os.close(fd)
 
     confparser = ConfigParser()
     opts = UDConfig()
@@ -633,21 +598,13 @@ def main(options = None):
             print >> sys.stderr, "Error reading config file: %s" % e
             sys.exit(1)
 
-    syslog.openlog("yum-updatesd", 0, syslog.LOG_DAEMON)
+    syslog.openlog("yum-updatesd-helper", 0, syslog.LOG_DAEMON)
 
     opts.populate(confparser, 'main')
     updd = UpdatesDaemon(opts)
 
-    if opts.dbus_listener:
-        bus = dbus.SystemBus()
-        name = dbus.service.BusName("edu.duke.linux.yum", bus=bus)
-        YumDbusListener(updd, name, allowshutdown = options.remoteshutdown)
-    
-    run_interval_ms = opts.run_interval * 1000 # needs to be in ms
-    gobject.timeout_add(run_interval_ms, updd.updatesCheck)
-
-    mainloop = gobject.MainLoop()
-    mainloop.run()
+    if options.check:
+        updd.updatesCheck()
 
 
 if __name__ == "__main__":
