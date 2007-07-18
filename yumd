@@ -1,0 +1,132 @@
+#!/usr/bin/python -tt
+#
+# Proof of concept yumd implementation
+#
+# since it takes me time everytime to figure this out again, here's how to
+# queue a check with dbus-send.  adjust appropriately for other methods
+# $ dbus-send --system --print-reply --type=method_call \
+#   --dest=edu.duke.linux.yum /Updatesd edu.duke.linux.yum.CheckNow
+
+import os, sys
+import syslog
+import subprocess
+import time
+
+from optparse import OptionParser
+
+import dbus
+import dbus.service
+import dbus.glib
+import gobject
+
+class YumDbusListener(dbus.service.Object):
+    def __init__(self, bus_name, object_path='/Updatesd',
+                 allowshutdown = False):
+        dbus.service.Object.__init__(self, bus_name, object_path)
+        self.allowshutdown = allowshutdown
+
+    def doCheck(self):
+        checkUpdates()
+        return False
+
+    @dbus.service.method("edu.duke.linux.yum", in_signature="")
+    def CheckNow(self):
+        # make updating checking asynchronous since we discover whether
+        # or not there are updates via a callback signal anyway
+        gobject.idle_add(self.doCheck)
+        return "check queued"
+
+    @dbus.service.method("edu.duke.linux.yum", in_signature="")
+    def ShutDown(self):
+        if not self.allowshutdown:
+            return False
+        
+        # we have to do this in a callback so that it doesn't get
+        # sent back to the caller
+        gobject.idle_add(shutDown)
+        return True
+
+    @dbus.service.method("edu.duke.linux.yum", in_signature="", out_signature="a(a{ss}a{ss})")
+    def GetUpdateInfo(self):
+        # FIXME: this call is deprecated.  things should watch for the update
+        # info signals
+        global updateInfoDone, updateInfo
+
+        if not updateInfoDone:
+            # FIXME: should we do a check and then return the info?
+            return []
+
+        return updateInfo
+
+def shutDown():
+    sys.exit(0)
+
+def restart():
+    os.chdir(initial_directory)
+    os.execve(sys.argv[0], sys.argv, os.environ)
+
+updateInfoDone = False
+updateInfo = []
+lastCheckTime = None
+
+
+def checkUpdates():
+    global lastCheckTime
+    print "last check was at ", lastCheckTime
+    subprocess.call(["./yum-updatesd-helper", "-c"])
+    lastCheckTime = time.time()
+
+def add_update(*args):
+    global updateInfo, updateInfoDone
+    if updateInfoDone:
+        updateInfo = []
+        updateInfoDone = False
+    import pdb; pdb.set_trace()
+    updateInfo.append((args[0][0], args[0][1]))
+
+def updates_done(num):
+    global updateInfoDone, updateInfo
+    if num != len(updateInfo):
+        updateInfo = []
+    else:
+        updateInfoDone = True
+
+def main(options = None):
+    # we'll be threading for downloads/updates
+    gobject.threads_init()
+    dbus.glib.threads_init()
+
+    if options is None:
+        parser = OptionParser()
+        parser.add_option("-f", "--no-fork", action="store_true", default=False, dest="nofork")
+        parser.add_option("-r", "--remote-shutdown", action="store_true", default=False, dest="remoteshutdown")    
+        (options, args) = parser.parse_args()
+
+        if not options.nofork:
+            if os.fork():
+                sys.exit()
+            fd = os.open("/dev/null", os.O_RDWR)
+            os.dup2(fd, 0)
+            os.dup2(fd, 1)
+            os.dup2(fd, 2)
+            os.close(fd)
+
+    syslog.openlog("yum-updatesd", 0, syslog.LOG_DAEMON)
+
+    if True:
+        bus = dbus.SystemBus()
+        name = dbus.service.BusName("edu.duke.linux.yum", bus=bus)
+        YumDbusListener(name, allowshutdown = options.remoteshutdown)
+
+        bus.add_signal_receiver(add_update, "UpdateInfoSignal", dbus_interface="edu.duke.linux.yum")
+        bus.add_signal_receiver(updates_done, "UpdatesAvailableSignal", dbus_interface="edu.duke.linux.yum")        
+    
+    run_interval_ms = 3600 * 1000 # needs to be in ms
+    gobject.timeout_add(run_interval_ms, checkUpdates)
+
+    mainloop = gobject.MainLoop()
+    mainloop.run()
+
+
+if __name__ == "__main__":
+    main()
