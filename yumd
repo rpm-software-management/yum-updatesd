@@ -53,7 +53,9 @@ class YumDbusListener(dbus.service.Object):
         global updateInfoDone, updateInfo
 
         if not updateInfoDone:
-            # FIXME: should we do a check and then return the info?
+            # FIXME: this isn't synchronous anymore.  but it should be
+            # reasonable enough given the users
+            gobject.idle_add(checkUpdates)
             return []
 
         return updateInfo
@@ -81,12 +83,11 @@ def add_update(*args):
     if updateInfoDone:
         updateInfo = []
         updateInfoDone = False
-    import pdb; pdb.set_trace()
     updateInfo.append((args[0][0], args[0][1]))
 
 def updates_done(num):
     global updateInfoDone, updateInfo
-    if num != len(updateInfo):
+    if int(num) != len(updateInfo):
         updateInfo = []
     else:
         updateInfoDone = True
