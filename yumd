@@ -19,6 +19,12 @@ import dbus.service
 import dbus.glib
 import gobject
 
+import yumdconfig
+
+updateInfoDone = False
+updateInfo = []
+helperProcess = None
+
 class YumDbusListener(dbus.service.Object):
     def __init__(self, bus_name, object_path='/Updatesd',
                  allowshutdown = False):
@@ -67,16 +73,21 @@ def restart():
     os.chdir(initial_directory)
     os.execve(sys.argv[0], sys.argv, os.environ)
 
-updateInfoDone = False
-updateInfo = []
-lastCheckTime = None
-
+def checkHelperStatus():
+    global helperProcess
+    if helperProcess.poll() is not None:
+        helperProcess = None
+        return False
+    return True
 
 def checkUpdates():
-    global lastCheckTime
-    print "last check was at ", lastCheckTime
-    subprocess.call(["./yum-updatesd-helper", "-c"])
-    lastCheckTime = time.time()
+    global helperProcess
+    if helperProcess is not None:
+        print >> sys.stderr, "Helper process already running"
+        return
+    helperProcess = subprocess.Popen(["./yum-updatesd-helper", "-c"],
+                                     close_fds = True)
+    gobject.timeout_add(10 * 1000, checkHelperStatus)
 
 def add_update(*args):
     global updateInfo, updateInfoDone
@@ -87,16 +98,14 @@ def add_update(*args):
 
 def updates_done(num):
     global updateInfoDone, updateInfo
+    # if we received all the updates, we're good.  otherwise, we need to
+    # clear the info out
     if int(num) != len(updateInfo):
         updateInfo = []
     else:
         updateInfoDone = True
 
 def main(options = None):
-    # we'll be threading for downloads/updates
-    gobject.threads_init()
-    dbus.glib.threads_init()
-
     if options is None:
         parser = OptionParser()
         parser.add_option("-f", "--no-fork", action="store_true", default=False, dest="nofork")
@@ -114,7 +123,9 @@ def main(options = None):
 
     syslog.openlog("yum-updatesd", 0, syslog.LOG_DAEMON)
 
-    if True:
+    opts = yumdconfig.read_config()
+
+    if opts.dbus_listener:
         bus = dbus.SystemBus()
         name = dbus.service.BusName("edu.duke.linux.yum", bus=bus)
         YumDbusListener(name, allowshutdown = options.remoteshutdown)
@@ -122,7 +133,7 @@ def main(options = None):
         bus.add_signal_receiver(add_update, "UpdateInfoSignal", dbus_interface="edu.duke.linux.yum")
         bus.add_signal_receiver(updates_done, "UpdatesAvailableSignal", dbus_interface="edu.duke.linux.yum")        
     
-    run_interval_ms = 3600 * 1000 # needs to be in ms
+    run_interval_ms = opts.run_interval * 1000 # needs to be in ms
     gobject.timeout_add(run_interval_ms, checkUpdates)
 
     mainloop = gobject.MainLoop()
