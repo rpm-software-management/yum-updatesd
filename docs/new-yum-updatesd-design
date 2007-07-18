@@ -1,0 +1,33 @@
+yumd
+----
+
+* Small daemon
+* Sits on dbus.  Watches for signals
+  CheckNow()
+  Shutdown() (?)
+  GetUpdateInfo()
+     returns a (cached) dict of update info.  if not available, queue a check
+* Watch for broadcast info of UpdateHelper.NewUpdates.  Save this for sending as GetUpdateInfo
+* Watch (inotify?) to see if metadata or rpmdb changes.  If so, invalidate update info
+* Determine if we're configured to download or update.  Exec helper with those options.
+* Add killing at some point (?)
+
+- restart on failure to check for updates with another sleep
+
+yum-update-helper
+-----------------
+
+* python
+* Gets execd by yumd to do the check
+* Downloads metadata
+* Checks for updates
+* Download if configured to do so
+* Install updates if configured to do so
+* Not threaded!  We're not listening, so need no threads
+* Emits signals:
+  * UpdatesAvail
+  * NoUpdatesAvail
+  * UpdatesApplied
+  * UpdatesFailed
+  * UpdateAvailInfo (async)
+  * LockHeld
