@@ -1,8 +1,7 @@
 #!/usr/bin/python -tt
 # This program is free software; you can redistribute it and/or modify
-# it under the terms of the GNU General Public License as published by
-# the Free Software Foundation; either version 2 of the License, or
-# (at your option) any later version.
+# it under the terms of version 2 of the GNU General Public License
+# as published by the Free Software Foundation.
 #
 # This program is distributed in the hope that it will be useful,
 # but WITHOUT ANY WARRANTY; without even the implied warranty of
@@ -13,32 +12,17 @@
 # along with this program; if not, write to the Free Software
 # Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
 
-# (c)2006 Duke University, Red Hat, Inc.
+# (c)2006-2007 Duke University, Red Hat, Inc.
 # Seth Vidal <skvidal@linux.duke.edu>
 # Jeremy Katz <katzj@redhat.com>
 
-#TODO:
-# - clean up config and work on man page for docs
-# - need to be able to cancel downloads.  requires some work in urlgrabber
-# - what to do if we're asked to exit while updates are being applied?
-# - what to do with the lock around downloads/updates
-
-# since it takes me time everytime to figure this out again, here's how to
-# queue a check with dbus-send.  adjust appropriately for other methods
-# $ dbus-send --system --print-reply --type=method_call \
-#   --dest=edu.duke.linux.yum /Updatesd edu.duke.linux.yum.CheckNow
-
-import gettext
 import os
 import sys
-import time
 import gzip
 import dbus
 import dbus.service
 import dbus.glib
-import gobject
 import smtplib
-import threading
 from optparse import OptionParser
 from email.MIMEText import MIMEText
 
@@ -58,7 +42,6 @@ sys.path.append('/usr/share/yum-cli')
 import callback
 
 config_file = '/etc/yum/yum-updatesd.conf'
-initial_directory = os.getcwd()
 
 class UpdateEmitter(object):
     """Abstract object for implementing different types of emitters."""
@@ -73,6 +56,9 @@ class UpdateEmitter(object):
     def updatesDownloading(self, updateInfo):
         """Emitted to give feedback of update download starting."""
         pass
+    def updatesInstalling(self, updateInfo):
+        """Emitted to give feedback of update download starting."""
+        pass
     def updatesApplied(self, updateInfo):
         """Emitted on successful installation of updates."""
         pass
@@ -82,11 +68,12 @@ class UpdateEmitter(object):
     def checkFailed(self, error):
         """Emitted when checking for updates failed."""
         pass
-
     def setupFailed(self, error, translation_domain):
        """Emitted when plugin initialization failed."""
        pass
-
+    def locked(self, error):
+        """Emitted when the yum lock is already held."""
+        pass
     def updateInfo(self, update):
         """Emitted with information on available updates (async)"""
         pass
@@ -212,6 +199,33 @@ class DbusUpdateEmitter(UpdateEmitter):
     def updateInfo(self, upd):
         self.dbusintf.UpdateInfoSignal(upd)
 
+    def locked(self, error):
+        self.dbusintf.LockedSignal(error)
+
+class StderrUpdateEmitter(UpdateEmitter):
+    def __init__(self):
+        UpdateEmitter.__init__(self)        
+
+    def updatesAvailable(self, updateInfo):
+        print >> sys.stderr, "%d updates available" %(len(updateInfo),)
+
+    def updatesFailed(self, errmsgs):
+        print >> sys.stderr, "Updates failed: %s" %(errmsgs,)
+
+    def updatesApplied(self, updinfo):
+        print >> sys.stderr, "Updates applied successfully: %s" %(updinfo)
+
+    def checkFailed(self, error):
+        print >> sys.stderr, "Check for updates failed: %s" %(error,)
+
+    def setupFailed(self, error, translation_domain):
+        print >> sys.stderr, "Update setup failed: %s" %(error,)
+
+    def updateInfo(self, upd):
+        print >> sys.stderr, "Update available: %s" %(upd,)
+
+    def locked(self, error):
+        print >> sys.stderr, "Yum lock already held: %s" %(error,)
 
 class YumDbusInterface(dbus.service.Object):
     def __init__(self, bus_name, object_path='/UpdatesAvail'):
@@ -245,6 +259,9 @@ class YumDbusInterface(dbus.service.Object):
     def UpdateInfoSignal(self, message):
         pass
 
+    @dbus.service.signal('edu.duke.linux.yum')
+    def LockedSignal(self, message):
+        pass
 
 class UDConfig(BaseConfig):
     """Config format for the daemon"""
@@ -264,85 +281,10 @@ class UDConfig(BaseConfig):
     yum_config = Option("/etc/yum/yum.conf")
 
 
-class UpdateBuildTransactionThread(threading.Thread):
-    def __init__(self, updd, name):
-        self.updd = updd
-        threading.Thread.__init__(self, name=name)
-
-    def run(self):
-        self.updd.tsInfo.makelists()
-        try:
-            (result, msgs) = self.updd.buildTransaction()
-        except yum.Errors.RepoError, errmsg: # error downloading hdrs
-            msgs = ["Error downloading headers"]
-            self.updd.emitUpdateFailed(msgs)
-            return
-
-        dlpkgs = map(lambda x: x.po, filter(lambda txmbr:
-                                            txmbr.ts_state in ("i", "u"),
-                                            self.updd.tsInfo.getMembers()))
-        self.updd.downloadPkgs(dlpkgs)
-        self.processPkgs(dlpkgs)
-
-
-class UpdateDownloadThread(UpdateBuildTransactionThread):
-    def __init__(self, updd):
-        UpdateBuildTransactionThread.__init__(self, updd,
-            name="UpdateDownloadThread")
-
-    def processPkgs(self, dlpkgs):
-        self.updd.emitAvailable()
-        self.updd.releaseLocks()
-
-
-class UpdateInstallThread(UpdateBuildTransactionThread):
-    def __init__(self, updd):
-        UpdateBuildTransactionThread.__init__(self, updd,
-            name="UpdateInstallThread")
-
-    def failed(self, msgs):
-        self.updd.emitUpdateFailed(msgs)
-        self.updd.releaseLocks()
-
-    def success(self):
-        self.updd.emitUpdateApplied()
-        self.updd.releaseLocks()
-
-        self.updd.updateInfo = None
-        self.updd.updateInfoTime = None        
-        
-    def processPkgs(self, dlpkgs):
-        for po in dlpkgs:
-            result, err = self.updd.sigCheckPkg(po)
-            if result == 0:
-                continue
-            elif result == 1:
-                try:
-                    self.updd.getKeyForPackage(po)
-                except yum.Errors.YumBaseError, errmsg:
-                    self.failed([str(errmsg)])
-
-        del self.updd.ts
-        self.updd.initActionTs() # make a new, blank ts to populate
-        self.updd.populateTs(keepold=0)
-        self.updd.ts.check() #required for ordering
-        self.updd.ts.order() # order
-        cb = callback.RPMInstallCallback(output = 0)
-        cb.filelog = True
-            
-        cb.tsInfo = self.updd.tsInfo
-        try:
-            self.updd.runTransaction(cb=cb)
-        except yum.Errors.YumBaseError, err:
-            self.failed([str(err)])
-
-        self.success()
-
 class UpdatesDaemon(yum.YumBase):
     def __init__(self, opts):
         yum.YumBase.__init__(self)
         self.opts = opts
-        self.didSetup = False
 
         self.emitters = []
         if 'dbus' in self.opts.emit_via:
@@ -354,9 +296,8 @@ class UpdatesDaemon(yum.YumBase):
             self.emitters.append(SyslogUpdateEmitter(self.opts.syslog_facility,
                                                      self.opts.syslog_ident,
                                                      self.opts.syslog_level))
-
+        self.emitters.append(StderrUpdateEmitter())
         self.updateInfo = []
-        self.updateInfoTime = None
 
     def doSetup(self):
         # if we are not root do the special subdir thing
@@ -365,14 +306,35 @@ class UpdatesDaemon(yum.YumBase):
                 os.makedirs(self.opts.nonroot_workdir)
             self.repos.setCacheDir(self.opts.nonroot_workdir)
 
-        self.doConfigSetup(fn=self.opts.yum_config)
+        try:
+            self.doConfigSetup(fn=self.opts.yum_config)
+        except Exception, e:
+            syslog.syslog(syslog.LOG_WARNING,
+                          "error initializing: %s" % e)
 
-    def refreshUpdates(self):
+            if isinstance(e, yum.plugins.PluginYumExit):
+                self.emitSetupFailed(e.value, e.translation_domain)
+            else:
+                # if we don't know where the string is from, then assume
+                # it's not marked for translation (versus sending 
+                # gettext.textdomain() and assuming it's from the default
+                # domain for this app)
+                self.emitSetupFailed(str(e))
+
+    def doLock(self):
+        try:
+            yum.YumBase.doLock(self)
+        except yum.Errors.LockError, e:
+            self.emitLocked("%s" %(e,))
+            sys.exit(1)
+
+    def refreshMetadata(self):
         self.doLock()
         try:
             self.doRepoSetup()
             self.doSackSetup()
-            self.updateCheckSetup()
+            self.doTsSetup()
+            self.doRpmDBSetup()
         except Exception, e:
             syslog.syslog(syslog.LOG_WARNING,
                           "error getting update info: %s" %(e,))
@@ -428,31 +390,15 @@ class UpdatesDaemon(yum.YumBase):
 
         self.updateInfo = []
         for (new, old) in self.up.getUpdatesTuples():
-            n = getDbusPackageDict(self.getPackageObject(new))
-            o = getDbusPackageDict(self.rpmdb.searchPkgTuple(old)[0])
-            self.updateInfo.append((n, o))
-            self.emitUpdateInfo( (n, o) )
-            
-
-        if self.conf.obsoletes:
-            for (obs, inst) in self.up.getObsoletesTuples():
-                n = getDbusPackageDict(self.getPackageObject(obs))
-                o = getDbusPackageDict(self.rpmdb.searchPkgTuple(inst)[0])
-                self.updateInfo.append((n, o))
-
-                self.emitUpdateInfo( (n, o) )                
-
-        self.updateInfoTime = time.time()
-
-    def populateTsInfo(self):
-        # figure out the updates
-        for (new, old) in self.up.getUpdatesTuples():
             updating = self.getPackageObject(new)
             updated = self.rpmdb.searchPkgTuple(old)[0]
                 
             self.tsInfo.addUpdate(updating, updated)
+            
+            n = getDbusPackageDict(updating)
+            o = getDbusPackageDict(updated)
+            self.updateInfo.append((n, o))
 
-        # and the obsoletes
         if self.conf.obsoletes:
             for (obs, inst) in self.up.getObsoletesTuples():
                 obsoleting = self.getPackageObject(obs)
@@ -460,91 +406,64 @@ class UpdatesDaemon(yum.YumBase):
                 
                 self.tsInfo.addObsoleting(obsoleting, installed)
                 self.tsInfo.addObsoleted(installed, obsoleting)
+                
+                n = getDbusPackageDict(obsoleting)
+                o = getDbusPackageDict(obsoleted)
+                self.updateInfo.append((n, o))
 
-    def updatesCheck(self):
-        if not self.didSetup:
-            try:
-                self.doSetup()
-            except Exception, e:
-                syslog.syslog(syslog.LOG_WARNING,
-                              "error initializing: %s" % e)
-
-                if isinstance(e, yum.plugins.PluginYumExit):
-                    self.emitSetupFailed(e.value, e.translation_domain)
-                else:
-                    # if we don't know where the string is from, then assume
-                    # it's not marked for translation (versus sending 
-                    # gettext.textdomain() and assuming it's from the default
-                    # domain for this app)
-                    self.emitSetupFailed(str(e))
-                # Setup failed, let's restart and try again after the update
-                # interval
-                restart()
-            else:
-                self.didSetup = True
-
+    def refreshUpdates(self):
         try:
-            if not self.refreshUpdates():
-                return
-        except yum.Errors.LockError:
-            return True # just pass for now
-
-        try:
-            self.populateTsInfo()
             self.populateUpdates()
-
-            if self.opts.do_update:
-                uit = UpdateInstallThread(self)
-                uit.start()
-            elif self.opts.do_download:
-                self.emitDownloading()
-                dl = UpdateDownloadThread(self)
-                dl.start()
-            else:
-                # just notify about things being available
-                self.emitAvailable()
-                self.releaseLocks()
         except Exception, e:
             self.emitCheckFailed("%s" %(e,))
-            self.doUnlock()
+            return False
+        return True
+
+    def downloadUpdates(self):
+        dlpkgs = map(lambda x: x.po, filter(lambda txmbr:
+                                            txmbr.ts_state in ("i", "u"),
+                                            self.tsInfo.getMembers()))
+        try:
+            self.downloadPkgs(dlpkgs)
+        except (yum.Errors.RepoError, IndexError), e:
+            self.emitCheckFailed("%s" %(e,))
+            return False
 
         return True
 
-    def getUpdateInfo(self):
-        # if we have a cached copy, use it
-        if self.updateInfoTime and (time.time() - self.updateInfoTime <
-                                    self.opts.updaterefresh):
-            return self.updateInfo
+    def installUpdates(self):
+        dlpkgs = map(lambda x: x.po, filter(lambda txmbr:
+                                            txmbr.ts_state in ("i", "u"),
+                                            self.tsInfo.getMembers()))
+        
+        for po in dlpkgs:
+            result, err = self.sigCheckPkg(po)
+            if result == 0:
+                continue
+            elif result == 1:
+                try:
+                    self.getKeyForPackage(po)
+                except yum.Errors.YumBaseError, errmsg:
+                    self.emitUpdateFailed([str(errmsg)])
+                    return False
+
+        del self.ts
+        self.initActionTs() # make a new, blank ts to populate
+        self.populateTs(keepold=0)
+        self.ts.check() #required for ordering
+        self.ts.order() # order
+        cb = callback.RPMInstallCallback(output = 0)
+        cb.filelog = True
             
-        # try to get the lock so we can update the info.  fall back to
-        # cached if available or try a few times.
-        for i in range(10):
-            try:
-                self.doLock()
-                break
-            except yum.Errors.LockError:
-                # if we can't get the lock, return what we have if we can
-                if self.updateInfo:
-                    return self.updateInfo
-                time.sleep(1)
-        else:
-            return []
-
+        cb.tsInfo = self.tsInfo
         try:
-            self.updateCheckSetup()
+            self.runTransaction(cb=cb)
+        except yum.Errors.YumBaseError, err:
+            self.emitUpdateFailed([str(err)])
+            return False
 
-            self.populateUpdates()
-
-            self.releaseLocks()
-        except:
-            self.doUnlock()
-
-        return self.updateInfo
-
-    def updateCheckSetup(self):
-        self.doTsSetup()
-        self.doRpmDBSetup()
-        self.doUpdateSetup()
+        self.emitUpdateApplied()
+        return True
 
     def releaseLocks(self):
         self.closeRpmDB()
@@ -552,11 +471,16 @@ class UpdatesDaemon(yum.YumBase):
 
     def emitAvailable(self):
         """method to emit a notice about updates"""
+        map(lambda x: self.emitUpdateInfo(x), self.updateInfo)
         map(lambda x: x.updatesAvailable(self.updateInfo), self.emitters)
 
     def emitDownloading(self):
         """method to emit a notice about updates downloading"""
         map(lambda x: x.updatesDownloading(self.updateInfo), self.emitters)
+
+    def emitInstalling(self):
+        """method to emit a notice about updates installing"""
+        map(lambda x: x.updatesInstalling(self.updateInfo), self.emitters)
 
     def emitUpdateApplied(self):
         """method to emit a notice when automatic updates applied"""
@@ -577,6 +501,10 @@ class UpdatesDaemon(yum.YumBase):
     def emitUpdateInfo(self, update):
         """method to emit information about an available update"""
         map(lambda x: x.updateInfo(update), self.emitters)
+
+    def emitLocked(self, error):
+        """method to emit to say that something has the yum lock"""
+        map(lambda x: x.locked(error), self.emitters)
 
 
 def main(options = None):
@@ -602,10 +530,43 @@ def main(options = None):
 
     opts.populate(confparser, 'main')
     updd = UpdatesDaemon(opts)
+    updd.doSetup()
+    if not updd.refreshMetadata():
+        sys.exit(1)
 
-    if options.check:
-        updd.updatesCheck()
+    # set up some reasonable things
+    if options.apply:
+        options.download = options.check = True
+    if options.download:
+        options.check = True
 
+    # do the check if so configured
+    if not options.check:
+        sys.exit(0)
+    if not updd.refreshUpdates():
+        sys.exit(1)
+
+    # download if set up to do so, else tell about the updates and exit
+    if not options.download:
+        updd.emitAvailable()
+        updd.releaseLocks()
+        sys.exit(0)
+
+    updd.emitDownloading()
+    if not updd.downloadUpdates():
+        sys.exit(1)
+
+    # now apply if we're set up to do so; else just tell that things are
+    # available
+    if not options.apply:
+        updd.emitAvailable()
+        updd.releaseLocks()
+        sys.exit(0)
+
+    if not updd.installUpdates():
+        sys.exit(1)
+
+    sys.exit(0)
 
 if __name__ == "__main__":
     main()
