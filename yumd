@@ -27,12 +27,13 @@ helperProcess = None
 
 class YumDbusListener(dbus.service.Object):
     def __init__(self, bus_name, object_path='/Updatesd',
-                 allowshutdown = False):
+                 allowshutdown = False, config = None):
         dbus.service.Object.__init__(self, bus_name, object_path)
         self.allowshutdown = allowshutdown
+        self.yumdconfig = config
 
     def doCheck(self):
-        checkUpdates()
+        checkUpdates(self.yumdconfig)
         return False
 
     @dbus.service.method("edu.duke.linux.yum", in_signature="")
@@ -80,21 +81,29 @@ def checkHelperStatus():
         return False
     return True
 
-def checkUpdates():
+def checkUpdates(opts):
     global helperProcess
     if helperProcess is not None:
         print >> sys.stderr, "Helper process already running"
         return
-    helperProcess = subprocess.Popen(["./yum-updatesd-helper", "-c"],
-                                     close_fds = True)
-    gobject.timeout_add(10 * 1000, checkHelperStatus)
+    args = ["./yum-updatesd-helper", "--check"]
+    if opts.do_download:
+        args.append("--download")
+    if opts.do_download_deps:
+        args.append("--deps")
+    if opts.do_update:
+        args.append("--apply")
+    if opts.debug:
+        args.append("--debug")
+    helperProcess = subprocess.Popen(args, close_fds = True)
+    gobject.timeout_add(4 * 1000, checkHelperStatus)
 
-def add_update(*args):
+def add_update(update):
     global updateInfo, updateInfoDone
     if updateInfoDone:
         updateInfo = []
         updateInfoDone = False
-    updateInfo.append((args[0][0], args[0][1]))
+    updateInfo.append(update)
 
 def updates_done(num):
     global updateInfoDone, updateInfo
@@ -128,7 +137,8 @@ def main(options = None):
     if opts.dbus_listener:
         bus = dbus.SystemBus()
         name = dbus.service.BusName("edu.duke.linux.yum", bus=bus)
-        YumDbusListener(name, allowshutdown = options.remoteshutdown)
+        YumDbusListener(name, allowshutdown = options.remoteshutdown,
+                        config = opts)
 
         bus.add_signal_receiver(add_update, "UpdateInfoSignal", dbus_interface="edu.duke.linux.yum")
         bus.add_signal_receiver(updates_done, "UpdatesAvailableSignal", dbus_interface="edu.duke.linux.yum")        
