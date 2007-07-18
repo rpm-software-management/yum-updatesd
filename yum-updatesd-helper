@@ -274,7 +274,8 @@ class UpdatesDaemon(yum.YumBase):
             self.emitters.append(SyslogUpdateEmitter(self.opts.syslog_facility,
                                                      self.opts.syslog_ident,
                                                      self.opts.syslog_level))
-#        self.emitters.append(StderrUpdateEmitter())
+        if opts.debug:
+            self.emitters.append(StderrUpdateEmitter())
         self.updateInfo = []
 
     def doSetup(self):
@@ -397,6 +398,17 @@ class UpdatesDaemon(yum.YumBase):
             return False
         return True
 
+    def findDeps(self):
+        try:
+            (res, resmsg) = self.buildTransaction()
+        except yum.Errors.RepoError, e:
+            self.emitCheckFailed("%s" %(e,))
+            return False
+        if res != 2:
+            self.emitUpdateFailed("Failed to build transaction: %s" %(str.join("\n", resmsg),))
+            return False
+        return True
+
     def downloadUpdates(self):
         dlpkgs = map(lambda x: x.po, filter(lambda txmbr:
                                             txmbr.ts_state in ("i", "u"),
@@ -490,7 +502,9 @@ def main(options = None):
         parser = OptionParser()
         parser.add_option("-c", "--check", action="store_true", default=False, dest="check")
         parser.add_option("-d", "--download", action="store_true", default=False, dest="download")
+        parser.add_option("", "--deps", action="store_true", default=False, dest="finddeps")        
         parser.add_option("-a", "--apply", action="store_true", default=False, dest="apply")
+        parser.add_option("", "--debug", action="store_true", default=False, dest="debug")                
         (options, args) = parser.parse_args()
 
 
@@ -504,6 +518,8 @@ def main(options = None):
 
     # set up some reasonable things
     if options.apply:
+        options.download = options.finddeps = options.check = True
+    if options.finddeps:
         options.download = options.check = True
     if options.download:
         options.check = True
@@ -521,6 +537,10 @@ def main(options = None):
         sys.exit(0)
 
     updd.emitDownloading()
+    if options.finddeps:
+        if not updd.findDeps():
+            sys.exit(1)
+            
     if not updd.downloadUpdates():
         sys.exit(1)
 
