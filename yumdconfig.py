@@ -39,6 +39,8 @@ class UDConfig(BaseConfig):
     syslog_level = Option("WARN")
     syslog_ident = Option("yum-updatesd")
     yum_config = Option("/etc/yum/yum.conf")
+    # added debugging
+    debug = BoolOption(True)
 
 def read_config():
     confparser = ConfigParser()
