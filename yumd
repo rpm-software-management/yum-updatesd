@@ -35,6 +35,8 @@ import dbus.service
 import dbus.glib
 import gobject
 
+import gamin
+
 sys.path.append('/usr/share/yum-updatesd')
 import yumdconfig
 
@@ -79,7 +81,7 @@ class YumDbusListener(dbus.service.Object):
         if not updateInfoDone:
             # FIXME: this isn't synchronous anymore.  but it should be
             # reasonable enough given the users
-            gobject.idle_add(checkUpdates)
+            gobject.idle_add(self.doCheck)
             return []
 
         return updateInfo
@@ -132,6 +134,28 @@ def updates_done(num):
     else:
         updateInfoDone = True
 
+def invalidate_cache(*args):
+    global updateInfoDone, updateInfo, helperProcess
+    if helperProcess is not None:
+        return
+    updateInfo = []
+    updateInfoDone = False
+def check_files(mon):
+    mon.handle_events()
+    return True
+def setup_watcher():
+    """Sets up gamin-based file watches on things we care about and makes
+       it so they get checked every 15 seconds."""
+    # add some watches on directories.  check them every 15 seconds
+    mon = gamin.WatchMonitor()
+    mon.watch_directory("/var/lib/rpm", invalidate_cache)
+    map(lambda x: mon.watch_directory("/var/cache/yum/%s" %(x,),
+                                      invalidate_cache),
+        os.listdir("/var/cache/yum"))
+    mon.handle_events()
+    gobject.timeout_add(1 * 1000, check_files, mon)
+    
+
 def main(options = None):
     if options is None:
         parser = OptionParser()
@@ -163,6 +187,9 @@ def main(options = None):
     
     run_interval_ms = opts.run_interval * 1000 # needs to be in ms
     gobject.timeout_add(run_interval_ms, checkUpdates, opts)
+
+    # set up file watcher when we're idle
+    gobject.idle_add(setup_watcher)
 
     mainloop = gobject.MainLoop()
     mainloop.run()
