@@ -37,12 +37,51 @@ import gobject
 
 import gamin
 
-sys.path.append('/usr/share/yum-updatesd')
-import yumdconfig
+from yum.config import BaseConfig, Option, IntOption, ListOption, BoolOption
+from yum.parser import ConfigPreProcessor
+from ConfigParser import ConfigParser, ParsingError
+
 
 updateInfoDone = False
 updateInfo = []
 helperProcess = None
+
+
+class UDConfig(BaseConfig):
+    """Config format for the daemon"""
+    run_interval = IntOption(3600)
+    nonroot_workdir = Option("/var/tmp/yum-updatesd")
+    emit_via = ListOption(['dbus', 'email', 'syslog'])
+    email_to = ListOption(["root"])
+    email_from = Option("root")
+    dbus_listener = BoolOption(True)
+    do_update = BoolOption(False)
+    do_download = BoolOption(False)
+    do_download_deps = BoolOption(False)
+    updaterefresh = IntOption(3600)
+    syslog_facility = Option("DAEMON")
+    syslog_level = Option("WARN")
+    syslog_ident = Option("yum-updatesd")
+    yum_config = Option("/etc/yum/yum.conf")
+    # added debugging
+    debug = BoolOption(False)
+
+def read_config():
+    confparser = ConfigParser()
+    opts = UDConfig()
+
+    config_file = '/etc/yum/yum-updatesd.conf'
+
+    if os.path.exists(config_file):
+        confpp_obj = ConfigPreProcessor(config_file)
+        try:
+            confparser.readfp(confpp_obj)
+        except ParsingError, e:
+            print >> sys.stderr, "Error reading config file: %s" % e
+            sys.exit(1)
+    opts.populate(confparser, 'main')
+    return opts
+
 
 class YumDbusListener(dbus.service.Object):
     def __init__(self, bus_name, object_path='/Updatesd',
@@ -188,7 +227,7 @@ def main(options = None):
 
     syslog.openlog("yum-updatesd", 0, syslog.LOG_DAEMON)
 
-    opts = yumdconfig.read_config()
+    opts = read_config()
 
     if options.debug:
         opts.debug = True

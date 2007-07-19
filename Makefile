@@ -25,16 +25,11 @@ MKDIR = @mkdir -p
 all:
 	@echo "Nothing to do for all"
 
-install-py:
-	@echo "Installing python modules"
-	$(MKDIR) $(PREFIX)/share/$(NAME)
-	$(INSTALL_RD) yumdconfig.py $(PREFIX)/share/$(NAME)
-
 install-bin:
 	@echo "Installing executables"
-	$(MKDIR) $(PREFIX)/sbin
+	$(MKDIR) $(PREFIX)/sbin $(PREFIX)/libexec
 	$(INSTALL) yumd $(PREFIX)/sbin
-	$(INSTALL) yum-updatesd-helper $(PREFIX)/sbin
+	$(INSTALL) yum-updatesd-helper $(PREFIX)/libexec
 
 install-doc:
 	@echo "Installing man pages"
@@ -52,7 +47,7 @@ install-etc:
 	$(MKDIR) $(CONFDIR)/dbus-1/system.d/
 	$(INSTALL_RD) etc/yum-updatesd-dbus.conf $(CONFDIR)/dbus-1/system.d/yum-updatesd.conf
 
-install: install-py install-bin install-doc install-etc
+install: install-bin install-doc install-etc
 
 dist:
 	@git-archive --format=tar --prefix=$(NAME)-$(VERSION)/ HEAD | bzip2 -9v > $(NAME)-$(VERSION).tar.bz2
