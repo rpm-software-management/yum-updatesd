@@ -33,9 +33,6 @@ import syslog
 from yum.constants import *
 from yum.update_md import UpdateMetadata
 
-sys.path.append('/usr/share/yum-updatesd')
-import yumdconfig
-
 # FIXME: is it really sane to use this from here?
 sys.path.append('/usr/share/yum-cli')
 import callback
@@ -261,33 +258,27 @@ class YumDbusInterface(dbus.service.Object):
         pass
 
 class UpdatesDaemon(yum.YumBase):
-    def __init__(self, opts):
+    def __init__(self, options):
         yum.YumBase.__init__(self)
-        self.opts = opts
+        self.options = options
 
         self.emitters = []
-        if 'dbus' in self.opts.emit_via:
+        if self.options.dbus:
             self.emitters.append(DbusUpdateEmitter())
-        if 'email' in self.opts.emit_via:
-            self.emitters.append(EmailUpdateEmitter(self.opts.email_from,
-                                                    self.opts.email_to))
-        if 'syslog' in self.opts.emit_via:
-            self.emitters.append(SyslogUpdateEmitter(self.opts.syslog_facility,
-                                                     self.opts.syslog_ident,
-                                                     self.opts.syslog_level))
-        if opts.debug:
+        if self.options.email:
+            self.emitters.append(EmailUpdateEmitter(self.options.emailfrom,
+                                                    self.options.emailto))
+        if self.options.syslog:
+            self.emitters.append(SyslogUpdateEmitter(self.options.logfacility,
+                                                     self.options.logident,
+                                                     self.options.loglevel))
+        if self.options.debug:
             self.emitters.append(StderrUpdateEmitter())
         self.updateInfo = []
 
     def doSetup(self):
-        # if we are not root do the special subdir thing
-        if os.geteuid() != 0:
-            if not os.path.exists(self.opts.nonroot_workdir):
-                os.makedirs(self.opts.nonroot_workdir)
-            self.repos.setCacheDir(self.opts.nonroot_workdir)
-
         try:
-            self.doConfigSetup(fn=self.opts.yum_config)
+            self.doConfigSetup(fn=self.yum_config)
         except Exception, e:
             syslog.syslog(syslog.LOG_WARNING,
                           "error initializing: %s" % e)
@@ -501,18 +492,35 @@ class UpdatesDaemon(yum.YumBase):
 def main(options = None):
     if options is None:
         parser = OptionParser()
+        # options around what actions to do
         parser.add_option("-c", "--check", action="store_true", default=False, dest="check")
         parser.add_option("-d", "--download", action="store_true", default=False, dest="download")
         parser.add_option("", "--deps", action="store_true", default=False, dest="finddeps")        
         parser.add_option("-a", "--apply", action="store_true", default=False, dest="apply")
-        parser.add_option("", "--debug", action="store_true", default=False, dest="debug")                
+        # debugging, different configs
+        parser.add_option("", "--debug", action="store_true", default=False, dest="debug")
+        parser.add_option("", "--config", type="string", default="/etc/yum/yum.conf", dest="config")
+
+        ## options for how to emit and config for each
+        parser.add_option("", "--dbus", action="store_true", default=False, dest="dbus")
+
+        # syslog
+        parser.add_option("", "--syslog", action="store_true", default=False, dest="syslog")
+        parser.add_option("", "--syslog-facility", type="string", default="DAEMON", dest="logfacility")
+        parser.add_option("", "--syslog-level", type="string", default="WARN", dest="loglevel")
+        parser.add_option("", "--syslog-ident", type="string", default="yum-updatesd", dest="logident")                        
+
+        # email
+        parser.add_option("", "--email", action="store_true", default=False, dest="email")
+        parser.add_option("", "--email-from", type="string", default="root", dest="emailfrom")
+        parser.add_option("", "--email-to", type="string", default="root", dest="emailto")                
+        
         (options, args) = parser.parse_args()
 
 
     syslog.openlog("yum-updatesd-helper", 0, syslog.LOG_DAEMON)
-    opts = yumdconfig.read_config()
 
-    updd = UpdatesDaemon(opts)
+    updd = UpdatesDaemon(options)
     updd.doSetup()
     if not updd.refreshMetadata():
         sys.exit(1)
