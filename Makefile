@@ -56,4 +56,4 @@ install: install-py install-bin install-doc install-etc
 
 dist:
 	@git-archive --format=tar --prefix=$(NAME)-$(VERSION)/ HEAD | bzip2 -9v > $(NAME)-$(VERSION).tar.bz2
-	@echo "Created $(NAME)-$(VERSION).tar.gz"
+	@echo "Created $(NAME)-$(VERSION).tar.bz2"
