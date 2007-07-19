@@ -278,7 +278,7 @@ class UpdatesDaemon(yum.YumBase):
 
     def doSetup(self):
         try:
-            self.doConfigSetup(fn=self.yum_config)
+            self.doConfigSetup(fn=self.options.config)
         except Exception, e:
             syslog.syslog(syslog.LOG_WARNING,
                           "error initializing: %s" % e)
