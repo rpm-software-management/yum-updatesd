@@ -140,7 +140,7 @@ def checkUpdates(opts):
     if os.path.exists("./yum-updatesd-helper") and opts.debug:
         args = ["./yum-updatesd-helper", "--check"]
     else:
-        args = ["/usr/libexec/yum-updatesd-helper"]
+        args = ["/usr/libexec/yum-updatesd-helper", "--check"]
 
     # arguments for what to do 
     if opts.do_download:
@@ -164,7 +164,7 @@ def checkUpdates(opts):
     if opts.debug:
         args.append("--debug")
         print "Going to exec: %s" %(args,)
-        
+
     helperProcess = subprocess.Popen(args, close_fds = True)
     gobject.timeout_add(4 * 1000, checkHelperStatus)
     return True
