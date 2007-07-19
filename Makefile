@@ -27,25 +27,25 @@ all:
 
 install-bin:
 	@echo "Installing executables"
-	$(MKDIR) $(PREFIX)/sbin $(PREFIX)/libexec
-	$(INSTALL) yumd $(PREFIX)/sbin
-	$(INSTALL) yum-updatesd-helper $(PREFIX)/libexec
+	$(MKDIR) $(DESTDIR)$(PREFIX)/sbin $(DESTDIR)$(PREFIX)/libexec
+	$(INSTALL) yumd $(DESTDIR)$(PREFIX)/sbin
+	$(INSTALL) yum-updatesd-helper $(DESTDIR)$(PREFIX)/libexec
 
 install-doc:
 	@echo "Installing man pages"
-	$(MKDIR) $(MANDIR)/man8
-	$(INSTALL_RD) docs/yum-updatesd.8 $(MANDIR)/man8
-	$(MKDIR) $(MANDIR)/man5
-	$(INSTALL_RD) docs/yum-updatesd.conf.5 $(MANDIR)/man5
+	$(MKDIR) $(DESTDIR)$(MANDIR)/man8
+	$(INSTALL_RD) docs/yum-updatesd.8 $(DESTDIR)$(MANDIR)/man8
+	$(MKDIR) $(DESTDIR)$(MANDIR)/man5
+	$(INSTALL_RD) docs/yum-updatesd.conf.5 $(DESTDIR)$(MANDIR)/man5
 
 install-etc:
 	@echo "Installing config files"
-	$(MKDIR) $(CONFDIR)/yum
-	$(INSTALL) etc/yum-updatesd.conf $(CONFDIR)/yum/yum-updatesd.conf
-	$(MKDIR) $(CONFDIR)/rc.d/init.d
-	$(INSTALL) etc/yum-updatesd.init $(CONFDIR)/rc.d/init.d/yum-updatesd
-	$(MKDIR) $(CONFDIR)/dbus-1/system.d/
-	$(INSTALL_RD) etc/yum-updatesd-dbus.conf $(CONFDIR)/dbus-1/system.d/yum-updatesd.conf
+	$(MKDIR) $(DESTDIR)$(CONFDIR)/yum
+	$(INSTALL) etc/yum-updatesd.conf $(DESTDIR)$(CONFDIR)/yum/yum-updatesd.conf
+	$(MKDIR) $(DESTDIR)$(CONFDIR)/rc.d/init.d
+	$(INSTALL) etc/yum-updatesd.init $(DESTDIR)$(CONFDIR)/rc.d/init.d/yum-updatesd
+	$(MKDIR) $(DESTDIR)$(CONFDIR)/dbus-1/system.d/
+	$(INSTALL_RD) etc/yum-updatesd-dbus.conf $(DESTDIR)$(CONFDIR)/dbus-1/system.d/yum-updatesd.conf
 
 install: install-bin install-doc install-etc
 
