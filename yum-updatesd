@@ -204,7 +204,7 @@ def setup_watcher():
                                       invalidate_cache),
         os.listdir("/var/cache/yum"))
     mon.handle_events()
-    gobject.timeout_add(1 * 1000, check_files, mon)
+    gobject.timeout_add(15 * 1000, check_files, mon)
     
 
 def main(options = None):
