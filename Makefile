@@ -55,21 +55,5 @@ install-etc:
 install: install-py install-bin install-doc install-etc
 
 dist:
-	@ TEMPDIR=`mktemp -d` || exit 1; \
-	mkdir $$TEMPDIR/$(NAME)-$(VERSION); \
-	cp Makefile $$TEMPDIR/$(NAME)-$(VERSION); \
-	cp yumd $$TEMPDIR/$(NAME)-$(VERSION); \
-	cp yum-updatesd-helper $$TEMPDIR/$(NAME)-$(VERSION); \
-	cp yumdconfig.py $$TEMPDIR/$(NAME)-$(VERSION); \
-	mkdir $$TEMPDIR/$(NAME)-$(VERSION)/etc; \
-	cp etc/*.conf $$TEMPDIR/$(NAME)-$(VERSION)/etc; \
-	cp etc/*.init $$TEMPDIR/$(NAME)-$(VERSION)/etc; \
-	mkdir $$TEMPDIR/$(NAME)-$(VERSION)/docs; \
-	cp docs/new-yum-updatesd-design $$TEMPDIR/$(NAME)-$(VERSION)/docs; \
-	cp docs/*.5 $$TEMPDIR/$(NAME)-$(VERSION)/docs; \
-	cp docs/*.8 $$TEMPDIR/$(NAME)-$(VERSION)/docs; \
-	mkdir $$TEMPDIR/$(NAME)-$(VERSION)/test; \
-	cp test/puplet-test.py $$TEMPDIR/$(NAME)-$(VERSION)/test; \
-	tar -zcf $(NAME)-$(VERSION).tar.gz -C $$TEMPDIR $(NAME)-$(VERSION); \
-	rm -rf $$TEMPDIR
+	@git-archive --format=tar --prefix=$(NAME)-$(VERSION)/ HEAD | bzip2 -9v > $(NAME)-$(VERSION).tar.bz2
 	@echo "Created $(NAME)-$(VERSION).tar.gz"
