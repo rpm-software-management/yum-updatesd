@@ -27,9 +27,7 @@ def update_info(*args):
     r = remote_object.GetUpdateInfo(dbus_interface="edu.duke.linux.yum")
     for (new, old) in r:
         print "new: %s; old: %s" %(new, old)
-    print "r: %s" %(r,)
-#    for (new, old) in r:
-#        print new, old
+    print "Total of %d updates" %(len(r),)
 
 def quit(*args):
     sys.exit(0)
