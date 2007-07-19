@@ -388,7 +388,7 @@ class UpdatesDaemon(yum.YumBase):
                 self.tsInfo.addObsoleted(installed, obsoleting)
                 
                 n = getDbusPackageDict(obsoleting)
-                o = getDbusPackageDict(obsoleted)
+                o = getDbusPackageDict(installed)
                 self.updateInfo.append((n, o))
 
     def refreshUpdates(self):
