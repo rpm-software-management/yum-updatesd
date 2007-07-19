@@ -33,6 +33,7 @@ import syslog
 from yum.constants import *
 from yum.update_md import UpdateMetadata
 
+sys.path.append('/usr/share/yum-updatesd')
 import yumdconfig
 
 # FIXME: is it really sane to use this from here?
