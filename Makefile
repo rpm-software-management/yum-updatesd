@@ -28,7 +28,7 @@ all:
 install-bin:
 	@echo "Installing executables"
 	$(MKDIR) $(DESTDIR)$(PREFIX)/sbin $(DESTDIR)$(PREFIX)/libexec
-	$(INSTALL) yumd $(DESTDIR)$(PREFIX)/sbin
+	$(INSTALL) yum-updatesd $(DESTDIR)$(PREFIX)/sbin
 	$(INSTALL) yum-updatesd-helper $(DESTDIR)$(PREFIX)/libexec
 
 install-doc:
