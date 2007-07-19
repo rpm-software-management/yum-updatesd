@@ -102,7 +102,7 @@ def checkUpdates(opts):
     global helperProcess
     if helperProcess is not None:
         print >> sys.stderr, "Helper process already running"
-        return
+        return True
     args = ["./yum-updatesd-helper", "--check"]
     if opts.do_download:
         args.append("--download")
@@ -114,6 +114,7 @@ def checkUpdates(opts):
         args.append("--debug")
     helperProcess = subprocess.Popen(args, close_fds = True)
     gobject.timeout_add(4 * 1000, checkHelperStatus)
+    return True
 
 def add_update(update):
     global updateInfo, updateInfoDone
@@ -161,7 +162,7 @@ def main(options = None):
         bus.add_signal_receiver(updates_done, "UpdatesAvailableSignal", dbus_interface="edu.duke.linux.yum")        
     
     run_interval_ms = opts.run_interval * 1000 # needs to be in ms
-    gobject.timeout_add(run_interval_ms, checkUpdates)
+    gobject.timeout_add(run_interval_ms, checkUpdates, opts)
 
     mainloop = gobject.MainLoop()
     mainloop.run()
