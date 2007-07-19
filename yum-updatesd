@@ -184,6 +184,11 @@ def updates_done(num):
     else:
         updateInfoDone = True
 
+def updates_applied(*args):
+    global updateInfoDone, updateInfo
+    updateInfo = []
+    updateInfoDone = False
+
 def invalidate_cache(*args):
     global updateInfoDone, updateInfo, helperProcess
     if helperProcess is not None:
@@ -239,7 +244,8 @@ def main(options = None):
                         config = opts)
 
         bus.add_signal_receiver(add_update, "UpdateInfoSignal", dbus_interface="edu.duke.linux.yum")
-        bus.add_signal_receiver(updates_done, "UpdatesAvailableSignal", dbus_interface="edu.duke.linux.yum")        
+        bus.add_signal_receiver(updates_done, "UpdatesAvailableSignal", dbus_interface="edu.duke.linux.yum")
+        bus.add_signal_receiver(updates_applied, "UpdatesAppliedSignal", dbus_interface="edu.duke.linux.yum")                
     
     run_interval_ms = opts.run_interval * 1000 # needs to be in ms
     gobject.timeout_add(run_interval_ms, checkUpdates, opts)
