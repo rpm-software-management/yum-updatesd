@@ -199,6 +199,7 @@ def setup_watcher():
     # add some watches on directories.  check them every 15 seconds
     mon = gamin.WatchMonitor()
     mon.watch_directory("/var/lib/rpm", invalidate_cache)
+    mon.watch_directory("/var/cache/yum", invalidate_cache)    
     map(lambda x: mon.watch_directory("/var/cache/yum/%s" %(x,),
                                       invalidate_cache),
         os.listdir("/var/cache/yum"))
