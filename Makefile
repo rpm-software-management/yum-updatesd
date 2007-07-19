@@ -49,6 +49,9 @@ install-etc:
 
 install: install-bin install-doc install-etc
 
+rpm: dist
+	@rpmbuild -ta $(NAME)-$(VERSION).tar.bz2
+
 dist:
 	@git-archive --format=tar --prefix=$(NAME)-$(VERSION)/ HEAD | bzip2 -9v > $(NAME)-$(VERSION).tar.bz2
 	@echo "Created $(NAME)-$(VERSION).tar.bz2"
