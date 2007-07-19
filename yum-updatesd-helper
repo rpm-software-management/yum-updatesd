@@ -16,7 +16,6 @@
 # Seth Vidal <skvidal@linux.duke.edu>
 # Jeremy Katz <katzj@redhat.com>
 
-import os
 import sys
 import gzip
 import dbus
