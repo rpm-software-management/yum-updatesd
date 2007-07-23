@@ -217,6 +217,7 @@ def main(options = None):
         parser = OptionParser()
         parser.add_option("-d", "--debug", action="store_true", default=False, dest="debug")        
         parser.add_option("-f", "--no-fork", action="store_true", default=False, dest="nofork")
+        parser.add_option("-o", "--oneshot", action="store_true", default=False, dest="oneshot")            
         parser.add_option("-r", "--remote-shutdown", action="store_true", default=False, dest="remoteshutdown")    
         (options, args) = parser.parse_args()
 
@@ -236,6 +237,10 @@ def main(options = None):
 
     if options.debug:
         opts.debug = True
+
+    if options.oneshot:
+        checkUpdates(opts)
+        sys.exit(0)
 
     if opts.dbus_listener:
         bus = dbus.SystemBus()
