@@ -7,7 +7,7 @@ License: GPLv2
 Group: System Environment/Base
 Source0: %{name}-%{version}.tar.bz2
 URL: http://linux.duke.edu/yum/
-BuildArchitectures: noarch
+BuildArch: noarch
 BuildRequires: python
 Requires: python >= 2.4
 Requires: yum >= 3.2.0
@@ -50,7 +50,7 @@ fi
 exit 0
 
 %files
-%defattr(-, root, root)
+%defattr(-,root,root,-)
 %doc COPYING
 %{_sysconfdir}/rc.d/init.d/yum-updatesd
 %config(noreplace) %{_sysconfdir}/yum/yum-updatesd.conf
