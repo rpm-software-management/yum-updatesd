@@ -11,7 +11,7 @@
 # James Bowes <jbowes@redhat.com>
 
 NAME = yum-updatesd
-VERSION = 0.2
+VERSION = 0.3
 
 PREFIX = /usr
 MANDIR = $(PREFIX)/share/man
@@ -41,7 +41,7 @@ install-doc:
 install-etc:
 	@echo "Installing config files"
 	$(MKDIR) $(DESTDIR)$(CONFDIR)/yum
-	$(INSTALL) etc/yum-updatesd.conf $(DESTDIR)$(CONFDIR)/yum/yum-updatesd.conf
+	$(INSTALL_RD) etc/yum-updatesd.conf $(DESTDIR)$(CONFDIR)/yum/yum-updatesd.conf
 	$(MKDIR) $(DESTDIR)$(CONFDIR)/rc.d/init.d
 	$(INSTALL) etc/yum-updatesd.init $(DESTDIR)$(CONFDIR)/rc.d/init.d/yum-updatesd
 	$(MKDIR) $(DESTDIR)$(CONFDIR)/dbus-1/system.d/

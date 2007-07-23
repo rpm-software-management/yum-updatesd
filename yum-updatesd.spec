@@ -1,7 +1,7 @@
 Summary: Update notification daemon
 Name: yum-updatesd
 Epoch: 1
-Version: 0.2
+Version: 0.3
 Release: 1%{?dist}
 License: GPLv2
 Group: System Environment/Base
@@ -52,8 +52,8 @@ exit 0
 %files
 %defattr(-, root, root)
 %doc COPYING
+%{_sysconfdir}/rc.d/init.d/yum-updatesd
 %config(noreplace) %{_sysconfdir}/yum/yum-updatesd.conf
-%config %{_sysconfdir}/rc.d/init.d/yum-updatesd
 %config %{_sysconfdir}/dbus-1/system.d/yum-updatesd.conf
 %{_sbindir}/yum-updatesd
 %{_libexecdir}/yum-updatesd-helper
@@ -61,5 +61,8 @@ exit 0
 
 
 %changelog
+* Mon Jul 23 2007 Jeremy Katz <katzj@redhat.com> - 1:0.3-1
+- update to new version
+
 * Thu Jul 19 2007 Jeremy Katz <katzj@redhat.com> - 1:0.1-1
 - new package for standalone yum-updatesd
