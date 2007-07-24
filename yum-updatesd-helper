@@ -156,7 +156,7 @@ class EmailUpdateEmitter(UpdateEmitter):
         msg = MIMEText(output)
         msg['Subject'] = "%d Updates Available" %(num,)
         msg['From'] = self.sender
-        msg['To'] = ",".join(self.rcpt)
+        msg['To'] = self.rcpt
         s = smtplib.SMTP()
         if self.smtp_server:
             s.connect(self.smtp_server)
