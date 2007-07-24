@@ -1,7 +1,7 @@
 Summary: Update notification daemon
 Name: yum-updatesd
 Epoch: 1
-Version: 0.3
+Version: 0.4
 Release: 1%{?dist}
 License: GPLv2
 Group: System Environment/Base
@@ -61,6 +61,9 @@ exit 0
 
 
 %changelog
+* Tue Jul 24 2007 Jeremy Katz <katzj@redhat.com> - 1:0.4-1
+- minor review fixes.  add --oneshot mode
+
 * Mon Jul 23 2007 Jeremy Katz <katzj@redhat.com> - 1:0.3-1
 - update to new version
 
