@@ -131,7 +131,7 @@ def checkHelperStatus():
         return False
     return True
 
-def checkUpdates(opts):
+def checkUpdates(opts, wait = False):
     global helperProcess
     if helperProcess is not None:
         print >> sys.stderr, "Helper process already running"
@@ -165,8 +165,12 @@ def checkUpdates(opts):
         print "Going to exec: %s" %(args,)
 
     helperProcess = subprocess.Popen(args, close_fds = True)
-    gobject.timeout_add(4 * 1000, checkHelperStatus)
-    return True
+
+    if not wait:
+        gobject.timeout_add(4 * 1000, checkHelperStatus)
+        return True
+
+    return helperProcess.wait()
 
 def add_update(update):
     global updateInfo, updateInfoDone
@@ -221,7 +225,7 @@ def main(options = None):
         parser.add_option("-r", "--remote-shutdown", action="store_true", default=False, dest="remoteshutdown")    
         (options, args) = parser.parse_args()
 
-        if not options.nofork:
+        if not options.oneshot and not options.nofork:
             if os.fork():
                 sys.exit()
             os.chdir("/")
@@ -239,7 +243,7 @@ def main(options = None):
         opts.debug = True
 
     if options.oneshot:
-        checkUpdates(opts)
+        checkUpdates(opts, wait = True)
         sys.exit(0)
 
     if opts.dbus_listener:
