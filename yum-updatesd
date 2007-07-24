@@ -53,6 +53,7 @@ class UDConfig(BaseConfig):
     emit_via = ListOption(['dbus', 'email', 'syslog'])
     email_to = ListOption(["root"])
     email_from = Option("root")
+    smtp_server = Option("localhost:25")
     dbus_listener = BoolOption(True)
     do_update = BoolOption(False)
     do_download = BoolOption(False)
@@ -154,7 +155,8 @@ def checkUpdates(opts, wait = False):
         args.append("--dbus")
     if "email" in opts.emit_via:
         args.extend(["--email", "--email-from=%s" %(opts.email_from,),
-                     "--email-to=%s" %(opts.email_to,)])
+                     "--email-to=%s" %(opts.email_to,),
+                     "--smtp-server=%s" %(opts.smtp_server)])
     if "syslog" in opts.emit_via:
         args.extend(["--syslog", "--syslog-level=%s" %(opts.syslog_level,),
                      "--syslog-facility=%s" %(opts.syslog_facility,),

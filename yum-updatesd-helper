@@ -133,10 +133,11 @@ class SyslogUpdateEmitter(UpdateEmitter):
 
 
 class EmailUpdateEmitter(UpdateEmitter):
-    def __init__(self, sender, rcpt):
+    def __init__(self, sender, rcpt, smtp_server):
         UpdateEmitter.__init__(self)        
         self.sender = sender
         self.rcpt = rcpt
+        self.smtp_server = smtp_server
 
     def updatesAvailable(self, updateInfo):
         num = len(updateInfo)
@@ -157,7 +158,10 @@ class EmailUpdateEmitter(UpdateEmitter):
         msg['From'] = self.sender
         msg['To'] = ",".join(self.rcpt)
         s = smtplib.SMTP()
-        s.connect()
+        if self.smtp_server:
+            s.connect(self.smtp_server)
+        else:
+            s.connect()
         s.sendmail(self.sender, self.rcpt, msg.as_string())
         s.close()
 
@@ -266,7 +270,8 @@ class UpdatesDaemon(yum.YumBase):
             self.emitters.append(DbusUpdateEmitter())
         if self.options.email:
             self.emitters.append(EmailUpdateEmitter(self.options.emailfrom,
-                                                    self.options.emailto))
+                                                    self.options.emailto,
+                                                    self.options.smtpserver))
         if self.options.syslog:
             self.emitters.append(SyslogUpdateEmitter(self.options.logfacility,
                                                      self.options.logident,
@@ -513,6 +518,7 @@ def main(options = None):
         parser.add_option("", "--email", action="store_true", default=False, dest="email")
         parser.add_option("", "--email-from", type="string", default="root", dest="emailfrom")
         parser.add_option("", "--email-to", type="string", default="root", dest="emailto")                
+        parser.add_option("", "--smtp-server", type="string", default="localhost:25", dest="smtpserver")
         
         (options, args) = parser.parse_args()
 
