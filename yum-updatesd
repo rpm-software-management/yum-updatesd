@@ -137,6 +137,13 @@ def checkUpdates(opts, wait = False):
     if helperProcess is not None:
         print >> sys.stderr, "Helper process already running"
         return True
+
+    bus = dbus.SystemBus()
+    o = bus.get_object("org.freedesktop.NetworkManager", "/org/freedesktop/NetworkManager")
+    if o.state != 3:
+        print >> sys.stderr, "Not online; can't check for updates"
+        return True
+
     if os.path.exists("./yum-updatesd-helper") and opts.debug:
         args = ["./yum-updatesd-helper", "--check"]
     else:
