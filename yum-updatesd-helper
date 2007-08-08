@@ -133,10 +133,10 @@ class SyslogUpdateEmitter(UpdateEmitter):
 
 
 class EmailUpdateEmitter(UpdateEmitter):
-    def __init__(self, sender, rcpt, smtp_server):
+    def __init__(self, sender, rcpts, smtp_server):
         UpdateEmitter.__init__(self)        
         self.sender = sender
-        self.rcpt = rcpt
+        self.rcpts = rcpts
         self.smtp_server = smtp_server
 
     def updatesAvailable(self, updateInfo):
@@ -156,13 +156,13 @@ class EmailUpdateEmitter(UpdateEmitter):
         msg = MIMEText(output)
         msg['Subject'] = "%d Updates Available" %(num,)
         msg['From'] = self.sender
-        msg['To'] = self.rcpt
+        msg['To'] = self.rcpts
         s = smtplib.SMTP()
         if self.smtp_server:
             s.connect(self.smtp_server)
         else:
             s.connect()
-        s.sendmail(self.sender, self.rcpt, msg.as_string())
+        s.sendmail(self.sender, self.rcpts.split(','), msg.as_string())
         s.close()
 
 class DbusUpdateEmitter(UpdateEmitter):
