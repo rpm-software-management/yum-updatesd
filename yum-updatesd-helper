@@ -310,6 +310,10 @@ class UpdatesDaemon(yum.YumBase):
             self.doSackSetup()
             self.doTsSetup()
             self.doRpmDBSetup()
+            try:
+                self.doGroupSetup()
+            except yum.Errors.GroupError:
+                pass
         except Exception, e:
             syslog.syslog(syslog.LOG_WARNING,
                           "error getting update info: %s" %(e,))
