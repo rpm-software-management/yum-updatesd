@@ -36,6 +36,8 @@ from yum.update_md import UpdateMetadata
 sys.path.append('/usr/share/yum-cli')
 import callback
 
+from yum.constants import YUM_PID_FILE
+
 class UpdateEmitter(object):
     """Abstract object for implementing different types of emitters."""
     def __init__(self):
@@ -298,7 +300,7 @@ class UpdatesDaemon(yum.YumBase):
 
     def doLock(self):
         try:
-            yum.YumBase.doLock(self)
+            yum.YumBase.doLock(self, YUM_PID_FILE)
         except yum.Errors.LockError, e:
             self.emitLocked("%s" %(e,))
             sys.exit(1)
@@ -310,6 +312,7 @@ class UpdatesDaemon(yum.YumBase):
             self.doSackSetup()
             self.doTsSetup()
             self.doRpmDBSetup()
+            self.doUpdateSetup()
             try:
                 self.doGroupSetup()
             except yum.Errors.GroupError:
@@ -318,7 +321,7 @@ class UpdatesDaemon(yum.YumBase):
             syslog.syslog(syslog.LOG_WARNING,
                           "error getting update info: %s" %(e,))
             self.emitCheckFailed("%s" %(e,))
-            self.doUnlock()
+            self.doUnlock(YUM_PID_FILE)
             return False
         return True
 
@@ -344,13 +347,13 @@ class UpdatesDaemon(yum.YumBase):
             """Returns a dictionary corresponding to the package object
             in the form that we can send over the wire for dbus."""
             pkgDict = {
-                    "name": pkg.name,
-                    "version": pkg.version,
-                    "release": pkg.release,
-                    "epoch": pkg.epoch,
-                    "arch": pkg.arch,
-                    "sourcerpm": pkg.sourcerpm,
-                    "summary": pkg.summary or "",
+                    "name": pkg.returnSimple("name"),
+                    "version": pkg.returnSimple("version"),
+                    "release": pkg.returnSimple("release"),
+                    "epoch": pkg.returnSimple("epoch"),
+                    "arch": pkg.returnSimple("arch"),
+                    "sourcerpm": pkg.returnSimple("sourcerpm"),
+                    "summary": pkg.returnSimple("summary") or "",
             }
 
             # check if any updateinfo is available
@@ -457,7 +460,7 @@ class UpdatesDaemon(yum.YumBase):
 
     def releaseLocks(self):
         self.closeRpmDB()
-        self.doUnlock()
+        self.doUnlock(YUM_PID_FILE)
 
     def emitAvailable(self):
         """method to emit a notice about updates"""
@@ -507,7 +510,7 @@ def main(options = None):
         parser.add_option("-a", "--apply", action="store_true", default=False, dest="apply")
         # debugging, different configs
         parser.add_option("", "--debug", action="store_true", default=False, dest="debug")
-        parser.add_option("", "--config", type="string", default="/etc/yum/yum.conf", dest="config")
+        parser.add_option("", "--config", type="string", default="/etc/yum.conf", dest="config")
 
         ## options for how to emit and config for each
         parser.add_option("", "--dbus", action="store_true", default=False, dest="dbus")
