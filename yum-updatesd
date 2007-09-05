@@ -45,6 +45,7 @@ updateInfoDone = False
 updateInfo = []
 helperProcess = None
 
+NM_ONLINE = 3
 
 class UDConfig(BaseConfig):
     """Config format for the daemon"""
@@ -147,7 +148,7 @@ def checkUpdates(opts, wait = False):
     bus = dbus.SystemBus()
     try:
         o = bus.get_object("org.freedesktop.NetworkManager", "/org/freedesktop/NetworkManager")
-        if o.state() != 3:
+        if o.state() != NM_ONLINE:
             args.append("--network-fail")
     except dbus.DBusException:
         pass
@@ -226,7 +227,10 @@ def setup_watcher():
         os.listdir("/var/cache/yum"))
     mon.handle_events()
     gobject.timeout_add(15 * 1000, check_files, mon)
-    
+
+def network_state_change(newstate, opts):
+    if int(newstate) == NM_ONLINE:
+        checkUpdates(opts)
 
 def main(options = None):
     if options is None:
@@ -258,15 +262,26 @@ def main(options = None):
         checkUpdates(opts, wait = True)
         sys.exit(0)
 
-    if opts.dbus_listener:
+    try:
         bus = dbus.SystemBus()
+    except dbus.DBusException, e:
+        bus = None
+    if opts.dbus_listener and bus is not None:
         name = dbus.service.BusName("edu.duke.linux.yum", bus=bus)
         YumDbusListener(name, allowshutdown = options.remoteshutdown,
                         config = opts)
 
         bus.add_signal_receiver(add_update, "UpdateInfoSignal", dbus_interface="edu.duke.linux.yum")
         bus.add_signal_receiver(updates_done, "UpdatesAvailableSignal", dbus_interface="edu.duke.linux.yum")
-        bus.add_signal_receiver(updates_applied, "UpdatesAppliedSignal", dbus_interface="edu.duke.linux.yum")                
+        bus.add_signal_receiver(updates_applied, "UpdatesAppliedSignal", dbus_interface="edu.duke.linux.yum")
+
+    try:
+        if bus is not None:
+            bus.add_signal_receiver(lambda x: network_state_change(x, opts),
+                                    "StateChange",
+                                    "org.freedesktop.NetworkManager")
+    except Exception, e:
+        pass
     
     run_interval_ms = opts.run_interval * 1000 # needs to be in ms
     gobject.timeout_add(run_interval_ms, checkUpdates, opts)
