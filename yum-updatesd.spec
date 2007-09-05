@@ -1,7 +1,7 @@
 Summary: Update notification daemon
 Name: yum-updatesd
 Epoch: 1
-Version: 0.4
+Version: 0.5
 Release: 1%{?dist}
 License: GPLv2
 Group: System Environment/Base
@@ -61,6 +61,14 @@ exit 0
 
 
 %changelog
+* Wed Sep  5 2007 Jeremy Katz <katzj@redhat.com> - 1:0.5-1
+- add option for configurable SMTP server
+- fix email sending (Rich Fearn, #251196)
+- make updates checking in the presence of NetworkManager smarter (#213732)
+- ensure group info gets updated
+- work with yum 3.0.x (jantill)
+- don't poll gamin
+
 * Tue Jul 24 2007 Jeremy Katz <katzj@redhat.com> - 1:0.4-1
 - minor review fixes.  add --oneshot mode
 
