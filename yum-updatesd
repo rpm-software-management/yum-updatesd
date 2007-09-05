@@ -212,13 +212,10 @@ def invalidate_cache(*args):
         return
     updateInfo = []
     updateInfoDone = False
-def check_files(mon):
-    mon.handle_events()
-    return True
 def setup_watcher():
     """Sets up gamin-based file watches on things we care about and makes
        it so they get checked every 15 seconds."""
-    # add some watches on directories.  check them every 15 seconds
+    # add some watches on directories.
     mon = gamin.WatchMonitor()
     mon.watch_directory("/var/lib/rpm", invalidate_cache)
     mon.watch_directory("/var/cache/yum", invalidate_cache)    
@@ -226,7 +223,9 @@ def setup_watcher():
                                       invalidate_cache),
         os.listdir("/var/cache/yum"))
     mon.handle_events()
-    gobject.timeout_add(15 * 1000, check_files, mon)
+    fd = mon.get_fd()
+    gobject.io_add_watch(fd, gobject.IO_IN|gobject.IO_PRI,
+                         lambda x, y: mon.handle_events())
 
 def network_state_change(newstate, opts):
     if int(newstate) == NM_ONLINE:
