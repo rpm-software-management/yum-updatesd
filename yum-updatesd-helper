@@ -508,6 +508,7 @@ def main(options = None):
         parser.add_option("-d", "--download", action="store_true", default=False, dest="download")
         parser.add_option("", "--deps", action="store_true", default=False, dest="finddeps")        
         parser.add_option("-a", "--apply", action="store_true", default=False, dest="apply")
+        parser.add_option("", "--network-fail", action="store_true", default=False, dest="netfail")        
         # debugging, different configs
         parser.add_option("", "--debug", action="store_true", default=False, dest="debug")
         parser.add_option("", "--config", type="string", default="/etc/yum.conf", dest="config")
@@ -533,6 +534,11 @@ def main(options = None):
     syslog.openlog("yum-updatesd-helper", 0, syslog.LOG_DAEMON)
 
     updd = UpdatesDaemon(options)
+
+    if options.netfail:
+        updd.emitCheckFailed("No network available")
+        sys.exit(1)
+
     updd.doSetup()
     if not updd.refreshMetadata():
         sys.exit(1)

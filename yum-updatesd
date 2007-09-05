@@ -138,16 +138,19 @@ def checkUpdates(opts, wait = False):
         print >> sys.stderr, "Helper process already running"
         return True
 
-    bus = dbus.SystemBus()
-    o = bus.get_object("org.freedesktop.NetworkManager", "/org/freedesktop/NetworkManager")
-    if o.state != 3:
-        print >> sys.stderr, "Not online; can't check for updates"
-        return True
-
     if os.path.exists("./yum-updatesd-helper") and opts.debug:
         args = ["./yum-updatesd-helper", "--check"]
     else:
         args = ["/usr/libexec/yum-updatesd-helper", "--check"]
+
+
+    bus = dbus.SystemBus()
+    try:
+        o = bus.get_object("org.freedesktop.NetworkManager", "/org/freedesktop/NetworkManager")
+        if o.state() != 3:
+            args.append("--network-fail")
+    except dbus.DBusException:
+        pass
 
     # arguments for what to do 
     if opts.do_download:
@@ -171,12 +174,12 @@ def checkUpdates(opts, wait = False):
 
     if opts.debug:
         args.append("--debug")
-        print "Going to exec: %s" %(args,)
+        print >> sys.stderr, "Going to exec: %s" %(args,)
 
     helperProcess = subprocess.Popen(args, close_fds = True)
 
     if not wait:
-        gobject.timeout_add(4 * 1000, checkHelperStatus)
+        gobject.timeout_add(1 * 1000, checkHelperStatus)
         return True
 
     return helperProcess.wait()
