@@ -1,7 +1,7 @@
 Summary: Update notification daemon
 Name: yum-updatesd
 Epoch: 1
-Version: 0.5
+Version: 0.6
 Release: 1%{?dist}
 License: GPLv2
 Group: System Environment/Base
@@ -61,6 +61,10 @@ exit 0
 
 
 %changelog
+* Wed Oct 10 2007 Jeremy Katz <katzj@redhat.com> - 1:0.6-1
+- add lsb initscript header (#247106)
+- overly simplistic service start speed-up
+
 * Wed Sep  5 2007 Jeremy Katz <katzj@redhat.com> - 1:0.5-1
 - add option for configurable SMTP server
 - fix email sending (Rich Fearn, #251196)
