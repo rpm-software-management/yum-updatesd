@@ -558,7 +558,7 @@ def main(options = None):
         sys.exit(1)
 
     # download if set up to do so, else tell about the updates and exit
-    if not options.download:
+    if not options.download or len(updd.updateInfo) == 0:
         updd.emitAvailable()
         updd.releaseLocks()
         sys.exit(0)
