@@ -11,7 +11,7 @@
 # James Bowes <jbowes@redhat.com>
 
 NAME = yum-updatesd
-VERSION = 0.6
+VERSION = 0.7
 
 PREFIX = /usr
 MANDIR = $(PREFIX)/share/man

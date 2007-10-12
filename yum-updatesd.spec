@@ -1,7 +1,7 @@
 Summary: Update notification daemon
 Name: yum-updatesd
 Epoch: 1
-Version: 0.6
+Version: 0.7
 Release: 1%{?dist}
 License: GPLv2
 Group: System Environment/Base
@@ -61,6 +61,9 @@ exit 0
 
 
 %changelog
+* Fri Oct 12 2007 Jeremy Katz <katzj@redhat.com> - 1:0.7-1
+- fix error when download is set, but no packages are available (#329361)
+
 * Wed Oct 10 2007 Jeremy Katz <katzj@redhat.com> - 1:0.6-1
 - add lsb initscript header (#247106)
 - overly simplistic service start speed-up
