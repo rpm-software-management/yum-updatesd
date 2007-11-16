@@ -24,6 +24,7 @@
 #   --dest=edu.duke.linux.yum /Updatesd edu.duke.linux.yum.CheckNow
 
 import os, sys
+import string
 import syslog
 import string
 import subprocess
