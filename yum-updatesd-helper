@@ -24,6 +24,8 @@ import dbus.glib
 import smtplib
 from optparse import OptionParser
 from email.MIMEText import MIMEText
+import socket
+import rfc822
 
 
 import yum
@@ -141,24 +143,33 @@ class EmailUpdateEmitter(UpdateEmitter):
         self.rcpts = rcpts
         self.smtp_server = smtp_server
 
-    def updatesAvailable(self, updateInfo):
-        num = len(updateInfo)
-        if num < 1:
-            return
+    def _msgGreeting(self):
+        output = """Hi,
+This is the automatic update system on %s.
 
+""" % socket.gethostname()
+        return output
+
+    def _msgFooter(self):
         output = """
-        Hi,
-        There are %d package updates available. Please run the system
-        updater.
-        
-        Thank You,
-        Your Computer
-        """ % num
-                
-        msg = MIMEText(output)
-        msg['Subject'] = "%d Updates Available" %(num,)
+Thank You,
+Your Computer
+"""
+        return output
+
+    def _msgPacketList(self, updateInfo):
+        output = ""
+        for package in updateInfo:
+            output += "    %-30s %-10s\n" % (package[0]['name'], package[0]['type'])
+        return output
+
+    def _sendMessage(self, subject, body):
+        msg = MIMEText(body)
+        msg['Subject'] = "yum: %s (on %s) " % (subject, socket.gethostname())
         msg['From'] = self.sender
         msg['To'] = self.rcpts
+        msg['Date'] = rfc822.formatdate()
+
         s = smtplib.SMTP()
         if self.smtp_server:
             s.connect(self.smtp_server)
@@ -166,6 +177,56 @@ class EmailUpdateEmitter(UpdateEmitter):
             s.connect()
         s.sendmail(self.sender, self.rcpts.split(','), msg.as_string())
         s.close()
+
+    def updatesAvailable(self, updateInfo):
+        num = len(updateInfo)
+        if num < 1:
+            return
+
+        output = self._msgGreeting()
+
+        output += """There are %d package updates available. Please run the system updater.
+
+Packages available for update:
+
+""" % num
+
+        output += self._msgPacketList(updateInfo)
+        output += self._msgFooter()
+
+        self._sendMessage("%d Updates Available" % num, output)
+
+    def updatesApplied(self, updateInfo):
+        num = len(updateInfo)
+        if num < 1:
+            return
+
+        output = self._msgGreeting()
+
+        output += """The system successfully installed/updated %d packages.
+
+Packages installed or updated:
+
+""" % num
+
+        output += self._msgPacketList(updateInfo)
+        output += self._msgFooter()
+
+        self._sendMessage("%d packets installed/updated" % num, output)
+
+    def updatesFailed(self, errmsgs):
+        output = self._msgGreeting()
+
+        output += """There was a problem updating the system. The following error message
+was reported:
+
+%s
+
+If the problem persists, manual intervention may be required.""" % errmsgs
+
+        output += self._msgFooter()
+
+        self._sendMessage("problem updating system", output)
 
 class DbusUpdateEmitter(UpdateEmitter):
     def __init__(self):
