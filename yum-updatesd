@@ -221,8 +221,8 @@ def setup_watcher():
     mon = gamin.WatchMonitor()
     mon.watch_directory("/var/lib/rpm", invalidate_cache)
     mon.watch_directory("/var/cache/yum", invalidate_cache)    
-    map(lambda x: mon.watch_directory("/var/cache/yum/%s" %(x,),
-                                      invalidate_cache),
+    map(lambda x: os.path.isdir("/var/cache/yum/%s" %(x,)) and
+        mon.watch_directory("/var/cache/yum/%s" %(x,), invalidate_cache),
         os.listdir("/var/cache/yum"))
     mon.handle_events()
     fd = mon.get_fd()
