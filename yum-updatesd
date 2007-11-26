@@ -57,6 +57,7 @@ class UDConfig(BaseConfig):
     email_to = ListOption(["root"])
     email_from = Option("root")
     smtp_server = Option("localhost:25")
+    use_sendmail = BoolOption(True)
     dbus_listener = BoolOption(True)
     do_update = BoolOption(False)
     do_download = BoolOption(False)
@@ -170,6 +171,8 @@ def checkUpdates(opts, wait = False):
         args.extend(["--email", "--email-from=%s" %(opts.email_from,),
                      "--email-to=%s" %(string.join(opts.email_to, ","),),
                      "--smtp-server=%s" %(opts.smtp_server)])
+        if opts.use_sendmail:
+            args.append("--sendmail")
     if "syslog" in opts.emit_via:
         args.extend(["--syslog", "--syslog-level=%s" %(opts.syslog_level,),
                      "--syslog-facility=%s" %(opts.syslog_facility,),

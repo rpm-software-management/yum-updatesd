@@ -26,6 +26,7 @@ from optparse import OptionParser
 from email.MIMEText import MIMEText
 import socket
 import rfc822
+import subprocess
 
 
 import yum
@@ -137,11 +138,12 @@ class SyslogUpdateEmitter(UpdateEmitter):
 
 
 class EmailUpdateEmitter(UpdateEmitter):
-    def __init__(self, sender, rcpts, smtp_server):
+    def __init__(self, sender, rcpts, smtp_server, sendmail):
         UpdateEmitter.__init__(self)        
         self.sender = sender
         self.rcpts = rcpts
         self.smtp_server = smtp_server
+        self.sendmail = sendmail
 
     def _msgGreeting(self):
         output = """Hi,
@@ -170,13 +172,18 @@ Your Computer
         msg['To'] = self.rcpts
         msg['Date'] = rfc822.formatdate()
 
-        s = smtplib.SMTP()
-        if self.smtp_server:
-            s.connect(self.smtp_server)
+        if self.sendmail:
+            p = subprocess.Popen("/usr/bin/sendmail", stdin=subprocess.PIPE)
+            p.stdin.write(str(msg))
+            p.communicate()
         else:
-            s.connect()
-        s.sendmail(self.sender, self.rcpts.split(','), msg.as_string())
-        s.close()
+            s = smtplib.SMTP()
+            if self.smtp_server:
+                s.connect(self.smtp_server)
+            else:
+                s.connect()
+            s.sendmail(self.sender, self.rcpts.split(','), msg.as_string())
+            s.close()
 
     def updatesAvailable(self, updateInfo):
         num = len(updateInfo)
@@ -334,7 +341,8 @@ class UpdatesDaemon(yum.YumBase):
         if self.options.email:
             self.emitters.append(EmailUpdateEmitter(self.options.emailfrom,
                                                     self.options.emailto,
-                                                    self.options.smtpserver))
+                                                    self.options.smtpserver,
+                                                    self.options.sendmail))
         if self.options.syslog:
             self.emitters.append(SyslogUpdateEmitter(self.options.logfacility,
                                                      self.options.logident,
@@ -588,6 +596,7 @@ def main(options = None):
         parser.add_option("", "--email-from", type="string", default="root", dest="emailfrom")
         parser.add_option("", "--email-to", type="string", default="root", dest="emailto")                
         parser.add_option("", "--smtp-server", type="string", default="localhost:25", dest="smtpserver")
+        parser.add_option("", "--sendmail", action="store_true", default=False, dest="sendmail")
         
         (options, args) = parser.parse_args()
 
