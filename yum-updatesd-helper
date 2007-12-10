@@ -162,7 +162,10 @@ Your Computer
     def _msgPacketList(self, updateInfo):
         output = ""
         for package in updateInfo:
-            output += "    %-30s %-10s\n" % (package[0]['name'], package[0]['type'])
+            if package[0].has_key('type'):
+                output += "    %-30s %-10s\n" % (package[0]['name'], package[0]['type'])
+            else:
+                output += "    %-30s\n" % (package[0]['name'])
         return output
 
     def _sendMessage(self, subject, body):
