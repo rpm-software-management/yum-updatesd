@@ -176,7 +176,7 @@ Your Computer
         msg['Date'] = rfc822.formatdate()
 
         if self.sendmail:
-            p = subprocess.Popen("/usr/sbin/sendmail", stdin=subprocess.PIPE)
+            p = subprocess.Popen(("/usr/sbin/sendmail", "-t"), stdin=subprocess.PIPE)
             p.stdin.write(str(msg))
             p.communicate()
         else:
