@@ -298,6 +298,11 @@ def main(options = None):
         pass
     
     run_interval_ms = opts.run_interval * 1000 # needs to be in ms
+    # Note that we don't use limited=True here because:
+    # 1. We could get out of sync. with yum metadata_expire, causing the yum
+    #    UI to hit the network.
+    # 2. If updatesrefresh == run_interval (the default), we could skip every
+    #    other timeout.
     gobject.timeout_add(run_interval_ms, checkUpdates, opts)
 
     # set up file watcher when we're idle
