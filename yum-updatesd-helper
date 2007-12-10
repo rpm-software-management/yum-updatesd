@@ -369,6 +369,11 @@ class UpdatesDaemon(yum.YumBase):
                 # gettext.textdomain() and assuming it's from the default
                 # domain for this app)
                 self.emitSetupFailed(str(e))
+        # Override the metadata expire, because there's no point running 
+        # yum-updatesd-helper if we use cached metadata
+        for repo in self.repos.listEnabled():
+            repo.metadata_expire = 1
+
 
     def doLock(self):
         try:
