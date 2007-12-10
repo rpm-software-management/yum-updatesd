@@ -52,7 +52,7 @@ NM_ONLINE = 3
 
 class UDConfig(BaseConfig):
     """Config format for the daemon"""
-    run_interval = IntOption(3600)
+    run_interval = SecondsOption(60 * 60) # 1h
     nonroot_workdir = Option("/var/tmp/yum-updatesd")
     emit_via = ListOption(['dbus', 'email', 'syslog'])
     email_to = ListOption(["root"])
@@ -63,7 +63,7 @@ class UDConfig(BaseConfig):
     do_update = BoolOption(False)
     do_download = BoolOption(False)
     do_download_deps = BoolOption(False)
-    updaterefresh = IntOption(3600)
+    updaterefresh = SecondsOption(60 * 60) # 1h
     syslog_facility = Option("DAEMON")
     syslog_level = Option("WARN")
     syslog_ident = Option("yum-updatesd")
