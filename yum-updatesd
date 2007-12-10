@@ -28,6 +28,7 @@ import string
 import syslog
 import string
 import subprocess
+import time # For updaterefresh
 
 from optparse import OptionParser
 
@@ -95,7 +96,7 @@ class YumDbusListener(dbus.service.Object):
         self.yumdconfig = config
 
     def doCheck(self):
-        checkUpdates(self.yumdconfig)
+        checkUpdates(self.yumdconfig, limited=True)
         return False
 
     @dbus.service.method("edu.duke.linux.yum", in_signature="")
@@ -136,10 +137,18 @@ def checkHelperStatus():
         return False
     return True
 
-def checkUpdates(opts, wait = False):
+lastUpdate = None
+def checkUpdates(opts, wait = False, limited=False):
+    """ Run yum-updatesd-helper to check for updates and report. Possibly
+        wait for the result, and/or limit the number of updates we try. """
+    global lastUpdate
     global helperProcess
     if helperProcess is not None:
         print >> sys.stderr, "Helper process already running"
+        return True
+
+    if lastUpdate and (time.time() - lastUpdate) < updaterefresh:
+        print >> sys.stderr, "Update requested too quickly"
         return True
 
     if os.path.exists("./yum-updatesd-helper") and opts.debug:
@@ -182,6 +191,7 @@ def checkUpdates(opts, wait = False):
         args.append("--debug")
         print >> sys.stderr, "Going to exec: %s" %(args,)
 
+    lastUpdate = time.time()
     helperProcess = subprocess.Popen(args, close_fds = True)
 
     if not wait:
@@ -234,7 +244,7 @@ def setup_watcher():
 
 def network_state_change(newstate, opts):
     if int(newstate) == NM_ONLINE:
-        checkUpdates(opts)
+        checkUpdates(opts, limited=True)
 
 def main(options = None):
     if options is None:
