@@ -40,6 +40,11 @@ import gobject
 import gamin
 
 from yum.config import BaseConfig, Option, IntOption, ListOption, BoolOption
+try:
+    from yum.config import SecondsOption
+except:
+    class SecondsOption(IntOption):
+        pass
 from yum.parser import ConfigPreProcessor
 from ConfigParser import ConfigParser, ParsingError
 
