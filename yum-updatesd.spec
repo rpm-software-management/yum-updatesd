@@ -1,7 +1,7 @@
 Summary: Update notification daemon
 Name: yum-updatesd
 Epoch: 1
-Version: 0.8
+Version: 0.9
 Release: 1%{?dist}
 License: GPLv2
 Group: System Environment/Base
@@ -61,6 +61,9 @@ exit 0
 
 
 %changelog
+* Mon Dec 17 2007 Jeremy Katz <katzj@redhat.com> - 1:0.9-1
+- More mail fixes (Pierre Ossman)
+
 * Wed Dec  5 2007 Jeremy Katz <katzj@redhat.com> - 1:0.8-1
 - Use sendmail (Pierre Ossman, #397711)
 - Don't wake up as often (#391571)
