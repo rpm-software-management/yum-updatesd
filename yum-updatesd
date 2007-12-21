@@ -152,7 +152,8 @@ def checkUpdates(opts, wait = False, limited=False):
         print >> sys.stderr, "Helper process already running"
         return True
 
-    if lastUpdate and (time.time() - lastUpdate) < opts.updaterefresh:
+    now = time.time()
+    if limited and lastUpdate and (now - lastUpdate) < opts.updaterefresh:
         print >> sys.stderr, "Update requested too quickly"
         return True
 
@@ -196,7 +197,7 @@ def checkUpdates(opts, wait = False, limited=False):
         args.append("--debug")
         print >> sys.stderr, "Going to exec: %s" %(args,)
 
-    lastUpdate = time.time()
+    lastUpdate = now
     helperProcess = subprocess.Popen(args, close_fds = True)
 
     if not wait:
