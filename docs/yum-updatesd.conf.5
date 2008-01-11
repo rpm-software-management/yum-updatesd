@@ -42,6 +42,13 @@ automatically downloaded.  Defaults to False.
 Boolean option to automatically download dependencies of packages which need
 updating as well.  Defaults to False.
 
+.IP \fBmdpolicy\fR
+This is the same configuration option as mdpolicy from yum.conf, but also allows
+the option yum which means it should take the values used in yum. It overrides
+the values in yum with whatever is configured. Defaults to group:small. Note
+that if you use a version of yum without mdpolicy support this option will do
+nothing.
+
 .SH "MAIL OPTIONS"
 .IP \fBemail_to\fR
 List of email addresses to send update notification to.  Defaults to 

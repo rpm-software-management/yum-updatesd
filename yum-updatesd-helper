@@ -372,8 +372,9 @@ class UpdatesDaemon(yum.YumBase):
         # Override the metadata expire, because there's no point running 
         # yum-updatesd-helper if we use cached metadata
         for repo in self.repos.listEnabled():
-            repo.metadata_expire = 1
-
+            repo.metadata_expire = 0
+            if self.options.mdpolicy != "yum" and hasattr(repo, 'mdpolicy'):
+                repo.mdpolicy = self.options.mdpolicy
 
     def doLock(self):
         try:
@@ -387,6 +388,8 @@ class UpdatesDaemon(yum.YumBase):
         try:
             self.doRepoSetup()
             self.doSackSetup()
+            for repo in self.repos.listEnabled(): # Do the mdpolicy
+                repo.repoXML
             self.doTsSetup()
             self.doRpmDBSetup()
             self.doUpdateSetup()
@@ -584,6 +587,7 @@ def main(options = None):
         parser.add_option("-c", "--check", action="store_true", default=False, dest="check")
         parser.add_option("-d", "--download", action="store_true", default=False, dest="download")
         parser.add_option("", "--deps", action="store_true", default=False, dest="finddeps")        
+        parser.add_option("", "--mdpolicy", type="string", default="group:small", dest="mdpolicy")
         parser.add_option("-a", "--apply", action="store_true", default=False, dest="apply")
         parser.add_option("", "--network-fail", action="store_true", default=False, dest="netfail")        
         # debugging, different configs

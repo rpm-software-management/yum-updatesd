@@ -39,7 +39,7 @@ import gobject
 
 import gamin
 
-from yum.config import BaseConfig, Option, IntOption, ListOption, BoolOption
+from yum.config import BaseConfig, Option, IntOption, ListOption, BoolOption, SelectionOption
 try:
     from yum.config import SecondsOption
 except:
@@ -73,6 +73,9 @@ class UDConfig(BaseConfig):
     syslog_level = Option("WARN")
     syslog_ident = Option("yum-updatesd")
     yum_config = Option("/etc/yum/yum.conf")
+    mdpolicy = SelectionOption('group:small',
+                               ('yum', 'instant', 'group:all', 'group:main',
+                                'group:small', 'group:primary'))
     # added debugging
     debug = BoolOption(False)
 
@@ -178,6 +181,9 @@ def checkUpdates(opts, wait = False, limited=False):
         args.append("--deps")
     if opts.do_update:
         args.append("--apply")
+
+    if opts.mdpolicy != "group:small": # Matches with yum-updatesd-helper
+        args.append("--mdpolicy=%s" % opts.mdpolicy)
 
     # how should we send notifications?
     if "dbus" in opts.emit_via:
