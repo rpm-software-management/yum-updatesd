@@ -177,7 +177,7 @@ Your Computer
 
         if self.sendmail:
             p = subprocess.Popen(("/usr/sbin/sendmail", "-t"), stdin=subprocess.PIPE)
-            p.stdin.write(str(msg))
+            p.stdin.write(msg.as_string())
             p.communicate()
         else:
             s = smtplib.SMTP()
