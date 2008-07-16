@@ -97,6 +97,24 @@ class SyslogUpdateEmitter(UpdateEmitter):
 
         syslog.syslog(self._levelMap(level), msg)
 
+    def updatesApplied(self, updateInfo):
+        num = len(updateInfo)
+        level = self.level
+        if num > 1:
+            msg = "%d updates applied" %(num,)
+        elif num == 1:
+            msg = "1 update applied"
+        else:
+            msg = "No updates applied"
+            level = syslog.LOG_DEBUG
+
+        syslog.syslog(self._levelMap(level), msg)
+
+    def updatesFailed(self, errmsgs):
+        level = self.level
+        msg = "Updates failed: %s" % errmsgs
+        syslog.syslog(self._levelMap(level), msg)
+
     def _levelMap(self, lvl):
         level_map = { "EMERG": syslog.LOG_EMERG,
                       "ALERT": syslog.LOG_ALERT,
@@ -177,7 +195,7 @@ Your Computer
 
         if self.sendmail:
             p = subprocess.Popen(("/usr/sbin/sendmail", "-t"), stdin=subprocess.PIPE)
-            p.stdin.write(str(msg))
+            p.stdin.write(msg.as_string())
             p.communicate()
         else:
             s = smtplib.SMTP()
