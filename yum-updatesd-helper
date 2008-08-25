@@ -557,6 +557,7 @@ class UpdatesDaemon(yum.YumBase):
         return True
 
     def releaseLocks(self):
+        # This should "just work" as of 3.2.19, as YumBase.__del__ will do it
         self.closeRpmDB()
         self.doUnlock(YUM_PID_FILE)
 
@@ -681,6 +682,7 @@ def main(options = None):
     if not updd.installUpdates():
         sys.exit(1)
 
+    updd.releaseLocks()
     sys.exit(0)
 
 if __name__ == "__main__":
