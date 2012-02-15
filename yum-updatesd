@@ -53,7 +53,7 @@ updateInfoDone = False
 updateInfo = []
 helperProcess = None
 
-NM_ONLINE = 3
+NM_ONLINE = 70
 
 class UDConfig(BaseConfig):
     """Config format for the daemon"""
