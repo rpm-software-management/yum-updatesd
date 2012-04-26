@@ -240,7 +240,7 @@ Packages installed or updated:
         output += self._msgPacketList(updateInfo)
         output += self._msgFooter()
 
-        self._sendMessage("%d packets installed/updated" % num, output)
+        self._sendMessage("%d packages installed/updated" % num, output)
 
     def updatesFailed(self, errmsgs):
         output = self._msgGreeting()
